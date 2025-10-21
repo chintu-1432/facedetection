@@ -1,5 +1,6 @@
-import cv2
 import streamlit as st
+import cv2
+import mediapipe as mp
 import numpy as np
 from PIL import Image
 from io import BytesIO
@@ -12,13 +13,9 @@ st.set_page_config(
     layout="wide",
 )
 
-# ---- Custom CSS for UI/UX ----
+# ---- Custom CSS Styling ----
 st.markdown("""
     <style>
-    body {
-        background-color: #0e1117;
-        color: #FAFAFA;
-    }
     .stApp {
         background: linear-gradient(135deg, #141E30, #243B55);
         color: white;
@@ -31,7 +28,7 @@ st.markdown("""
     }
     .subtitle {
         text-align: center;
-        font-size: 1.2em;
+        font-size: 1.1em;
         color: #b0bec5;
         margin-bottom: 2em;
     }
@@ -41,33 +38,38 @@ st.markdown("""
         margin-top: 3em;
         font-size: 0.9em;
     }
+    button[kind="primary"] {
+        background-color: #1E88E5 !important;
+        color: white !important;
+    }
     </style>
 """, unsafe_allow_html=True)
 
 # ---- Title and Description ----
 st.markdown("<div class='title'>🧠 Face Detection Web App</div>", unsafe_allow_html=True)
-st.markdown("<div class='subtitle'>Detect faces from uploaded images or live webcam feed using OpenCV and Streamlit</div>", unsafe_allow_html=True)
+st.markdown("<div class='subtitle'>Detect faces from uploaded images or webcam feed using MediaPipe and Streamlit</div>", unsafe_allow_html=True)
 
-# ---- Sidebar Options ----
+# ---- Sidebar ----
 st.sidebar.header("⚙️ Controls")
 mode = st.sidebar.radio("Choose Input Mode:", ("📸 Upload Image", "🎥 Use Webcam"))
 st.sidebar.markdown("---")
-st.sidebar.info("Tip: You can switch between image upload and webcam mode anytime.")
+st.sidebar.info("You can switch between image upload and webcam anytime.")
 
-# ---- Load the Face Classifier ----
-face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
+# ---- MediaPipe Setup ----
+mp_face = mp.solutions.face_detection
+mp_draw = mp.solutions.drawing_utils
 
-# ---- Face Detection Function ----
-def detect_faces(image):
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    faces = face_cascade.detectMultiScale(gray, 1.1, 5)
-    for (x, y, w, h) in faces:
-        cv2.rectangle(image, (x, y), (x + w, y + h), (46, 204, 113), 2)
-        cv2.putText(image, "Face", (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (46, 204, 113), 2)
-    return image, len(faces)
+# ---- Helper Functions ----
+def detect_faces_mediapipe(image):
+    with mp_face.FaceDetection(model_selection=0, min_detection_confidence=0.5) as face_detection:
+        results = face_detection.process(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+        if results.detections:
+            for detection in results.detections:
+                mp_draw.draw_detection(image, detection)
+        count = len(results.detections) if results.detections else 0
+    return image, count
 
-# ---- Function to Create Download Link ----
-def get_image_download_link(img, filename, text):
+def get_image_download_link(img, filename="face_detected.png", text="💾 Download Processed Image"):
     buffered = BytesIO()
     img.save(buffered, format="PNG")
     img_bytes = buffered.getvalue()
@@ -79,18 +81,18 @@ def get_image_download_link(img, filename, text):
 if mode == "📸 Upload Image":
     st.markdown("### 🖼️ Upload an Image")
     uploaded_file = st.file_uploader("Upload a clear image containing faces:", type=["jpg", "jpeg", "png"])
-    
+
     if uploaded_file:
         file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
         image = cv2.imdecode(file_bytes, 1)
-        result_img, faces = detect_faces(image)
+        result_img, faces = detect_faces_mediapipe(image)
 
         st.success(f"✅ Detected {faces} face(s) in the image.")
         st.image(cv2.cvtColor(result_img, cv2.COLOR_BGR2RGB), channels="RGB", use_container_width=True)
 
-        # Convert result image for download
+        # Convert result to PIL for download
         result_pil = Image.fromarray(cv2.cvtColor(result_img, cv2.COLOR_BGR2RGB))
-        st.markdown(get_image_download_link(result_pil, "face_detected.png", "💾 Download Processed Image"), unsafe_allow_html=True)
+        st.markdown(get_image_download_link(result_pil), unsafe_allow_html=True)
 
 # ---- Option 2: Webcam ----
 elif mode == "🎥 Use Webcam":
@@ -106,7 +108,7 @@ elif mode == "🎥 Use Webcam":
         if not ret:
             st.error("Unable to access the webcam. Please check permissions.")
             break
-        frame, faces = detect_faces(frame)
+        frame, faces = detect_faces_mediapipe(frame)
         FRAME_WINDOW.image(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB), channels="RGB", use_container_width=True)
     else:
         camera.release()
@@ -115,7 +117,7 @@ elif mode == "🎥 Use Webcam":
 # ---- Footer ----
 st.markdown("""
 <div class="footer">
-Made with ❤️ using <b>Python</b>, <b>OpenCV</b> & <b>Streamlit</b><br>
+Made with ❤️ using <b>Python</b>, <b>MediaPipe</b> & <b>Streamlit</b><br>
 Developed by <b>Kmpl Youth</b>
 </div>
 """, unsafe_allow_html=True)
