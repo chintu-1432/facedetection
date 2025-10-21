@@ -5,25 +5,27 @@ from PIL import Image, ImageDraw
 from io import BytesIO
 import base64
 
+# ---- Page Config ----
 st.set_page_config(page_title="Face Detection App", page_icon="🧠", layout="wide")
 
+# ---- Custom CSS ----
 st.markdown("""
 <style>
-.stApp {
-  background: linear-gradient(135deg,#141E30,#243B55);
-  color:white;
-}
+.stApp { background: linear-gradient(135deg,#141E30,#243B55); color:white; }
 .title{text-align:center;font-size:2.5em;font-weight:bold;margin-bottom:0.3em;}
 .subtitle{text-align:center;font-size:1.1em;color:#b0bec5;margin-bottom:2em;}
 .footer{text-align:center;color:#90caf9;margin-top:3em;font-size:0.9em;}
+button{background-color:#1E88E5;color:white;padding:8px 20px;border:none;border-radius:5px;}
 </style>
 """, unsafe_allow_html=True)
 
 st.markdown("<div class='title'>🧠 Face Detection Web App</div>", unsafe_allow_html=True)
-st.markdown("<div class='subtitle'>Detect faces from uploaded images using MediaPipe (no OpenCV)</div>", unsafe_allow_html=True)
+st.markdown("<div class='subtitle'>Detect faces from images using MediaPipe (Python 3.13 compatible)</div>", unsafe_allow_html=True)
 
 st.sidebar.header("⚙️ Controls")
-st.sidebar.info("This version avoids OpenCV import errors and works with Python 3.13.")
+st.sidebar.info("Upload an image or use webcam. This version avoids OpenCV import errors.")
+
+# ---- MediaPipe Face Detection ----
 mp_face = mp.solutions.face_detection
 
 def detect_faces_pillow(image):
@@ -46,11 +48,11 @@ def download_button(image, filename="face_detected.png"):
     buf = BytesIO()
     image.save(buf, format="PNG")
     b64 = base64.b64encode(buf.getvalue()).decode()
-    href = f'<a href="data:file/png;base64,{b64}" download="{filename}"><button style="background-color:#1E88E5;color:white;padding:8px 20px;border:none;border-radius:5px;">💾 Download Processed Image</button></a>'
+    href = f'<a href="data:file/png;base64,{b64}" download="{filename}"><button>💾 Download Processed Image</button></a>'
     return href
 
 st.markdown("### 🖼️ Upload an Image")
-uploaded = st.file_uploader("Upload an image (JPG or PNG):", type=["jpg","jpeg","png"])
+uploaded = st.file_uploader("Upload a JPG/PNG image:", type=["jpg","jpeg","png"])
 
 if uploaded:
     image = Image.open(uploaded)
